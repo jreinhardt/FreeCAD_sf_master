@@ -38,6 +38,7 @@
 #include <BRepGProp.hxx>
 #include <GProp_GProps.hxx>
 #include <GCPnts_UniformAbscissa.hxx>
+#include <GCPnts_QuasiUniformDeflection.hxx>
 
 #include <Base/VectorPy.h>
 #include <Base/GeometryPyCXX.h>
@@ -336,27 +337,42 @@ PyObject* TopoShapeWirePy::discretize(PyObject *args)
 
     try {
         BRepAdaptor_CompCurve adapt(TopoDS::Wire(getTopoShapePtr()->_Shape));
-        GCPnts_UniformAbscissa discretizer;
+        Py::List points;
+        bool success=false;
+
         if (PyInt_Check(defl_or_num)) {
             int num = PyInt_AsLong(defl_or_num);
+            GCPnts_UniformAbscissa discretizer;
             discretizer.Initialize (adapt, num);
+
+            success = discretizer.IsDone () && discretizer.NbPoints () > 0;
+            if (success) {
+                int nbPoints = discretizer.NbPoints ();
+                for (int i=1; i<=nbPoints; i++) {
+                    gp_Pnt p = adapt.Value (discretizer.Parameter (i));
+                    points.append(Py::Vector(Base::Vector3d(p.X(),p.Y(),p.Z())));
+                }
+            }
         }
         else if (PyFloat_Check(defl_or_num)) {
             double defl = PyFloat_AsDouble(defl_or_num);
+            GCPnts_QuasiUniformDeflection discretizer;
             discretizer.Initialize (adapt, defl);
+
+            success = discretizer.IsDone () && discretizer.NbPoints () > 0;
+            if (success) {
+                int nbPoints = discretizer.NbPoints ();
+                for (int i=1; i<=nbPoints; i++) {
+                    gp_Pnt p = adapt.Value (discretizer.Parameter (i));
+                    points.append(Py::Vector(Base::Vector3d(p.X(),p.Y(),p.Z())));
+                }
+            }
         }
         else {
             PyErr_SetString(PyExc_TypeError, "Either int or float expected");
             return 0;
         }
-        if (discretizer.IsDone () && discretizer.NbPoints () > 0) {
-            Py::List points;
-            int nbPoints = discretizer.NbPoints ();
-            for (int i=1; i<=nbPoints; i++) {
-                gp_Pnt p = adapt.Value (discretizer.Parameter (i));
-                points.append(Py::Vector(Base::Vector3d(p.X(),p.Y(),p.Z())));
-            }
-
+        if (success) {
             return Py::new_reference_to(points);
         }
         else {

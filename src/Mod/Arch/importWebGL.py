@@ -26,7 +26,8 @@
 options: importWebGL.wireframeStyle = "faceloop" (can also be "multimaterial" or None)
 importWebGL.template = a complete html file, where $CameraData is a placeholder for the 
 FreeCAD camera, and $ObjectsData a placeholder for the FreeCAD objects.
-importWebGL.linewidth = an integer, specifyig the width of lines in "faceloop" mode"""
+importWebGL.linewidth = an integer, specifyig the width of lines in "faceloop" mode
+importWebGL.shading = "basic" (can also be "phong")"""
 
 import FreeCAD,Draft,Part,DraftGeomUtils
 
@@ -45,6 +46,7 @@ tab = "                " # the tab size
 wireframeStyle = "faceloop" # this can be "faceloop", "multimaterial" or None
 cameraPosition = None # set this to a tuple to change, for ex. (0,0,0)
 linewidth = 1
+shading = "basic"
 template = """<!DOCTYPE html>
         <html>
         <head>
@@ -86,7 +88,7 @@ template = """<!DOCTYPE html>
         
                 $ObjectsData // placeholder for the FreeCAD objects
         
-                var light = new THREE.PointLight( 0xFFFF00 );
+                var light = new THREE.PointLight( 0xFFFFFF );
                 light.position.set( -10000, -10000, 10000 );
                 scene.add( light );
         
@@ -172,6 +174,8 @@ def getObjectData(obj,wireframeMode=wireframeStyle):
         # adding facets data
         for f in fcmesh[1]:
             result += tab+"geom.faces.push( new THREE.Face3"+str(f)+" );\n"
+        if shading == "phong":
+            result += "geom.computeFaceNormals();\n"
         for f in obj.Shape.Faces:
             for w in f.Wires:
                 wo = Part.Wire(DraftGeomUtils.sortEdges(w.Edges))
@@ -206,7 +210,10 @@ def getObjectData(obj,wireframeMode=wireframeStyle):
             rgb = Draft.getrgb(col,testbw=False)
         else:
             rgb = "#888888" # test color
-        result += tab+"var basematerial = new THREE.MeshBasicMaterial( { color: 0x"+str(rgb)[1:]+" } );\n"
+        if shading == "phong":
+            result += tab+"var basematerial = new THREE.MeshPhongMaterial( { color: 0x"+str(rgb)[1:]+" } );\n"
+        elif shading == "basic":
+            result += tab+"var basematerial = new THREE.MeshBasicMaterial( { color: 0x"+str(rgb)[1:]+" } );\n"
         #result += tab+"var basematerial = new THREE.MeshLambertMaterial( { color: 0x"+str(rgb)[1:]+" } );\n"
         
         if wireframeMode == "faceloop":
